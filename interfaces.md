@@ -191,7 +191,7 @@ vim ios-xe-native-interface-acl-lxml.py
 ```
 ```python
 from lxml import etree
-def iosXEInterface(intf_type, name, acl_name=None, out=False, ins=False):
+def iosXEInterfaceAcl(intf_type, name, acl_name=None, out=False, ins=False):
 	config = etree.Element("config")
 	# <native><interfaces><GigabitEthernet>
 	native = etree.SubElement(config, "native",
@@ -221,7 +221,7 @@ def iosXEInterface(intf_type, name, acl_name=None, out=False, ins=False):
 		
 	return config
 	
-config = iosXEInterface(
+config = iosXEInterfaceAcl(
 	intf_type = "GigabitEthernet",
 	name = "4",
 	acl_name = "foo",
