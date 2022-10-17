@@ -28,7 +28,7 @@ qualify = lambda tag, ns=BASE_NS_1_0: tag if ns is None else "{%s}%s" % (ns, tag
 ```
 
 The main messages that are used are the hello at the start of any transaction, the get-config rpc
-and the edit-config rpc. There are others to explore, and we will do that in a future update to these docs. (these include lock, unlock, validation and commit. For now we handle this in client)
+and the edit-config rpc. There are others to explore, and we will do that in a future update to these docs. 
 ##### Hello
 ```xml
 <!--
