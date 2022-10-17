@@ -1,5 +1,12 @@
 # IOS XE NetConf documentation
 ----
+## SEE ALSO:
+[IOS XE Interfaces](https://github.com/qzx/netconf/blob/main/interfaces.md)  
+[IOS XE Static Routes](https://github.com/qzx/netconf/blob/main/static-routes.md)  
+[IOS XE Access Lists](https://github.com/qzx/netconf/blob/main/access-lists.md)  
+
+There's additionally a template
+[IOS XE YANG DOC Template](https://github.com/qzx/netconf/blob/main/doc_template.md)
 
 ### Some notes on NETCONF automation
 
