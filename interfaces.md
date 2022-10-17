@@ -9,7 +9,7 @@
 vim templates/ios-xe-native-interface.xml.j2
 ```
 ```jinja2
-<config>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
     <interface>
 	  <{{intf_type}}>             
@@ -61,7 +61,9 @@ vim ios-xe-native-interface-lxml.py
 ```python
 from lxml import etree
 def iosXEInterface(intf_type, name, desc, addr, mask, shutdown=False):
-	config = etree.Element("config")
+	config = etree.Element("config",
+		nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
+	)
 	# <native><interfaces><GigabitEthernet>
 	native = etree.SubElement(config, "native",
 		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
@@ -99,7 +101,7 @@ print(etree.tostring(config, pretty_print=True).decode())
 These produce the same output which can be used directly in a scrapli_netconf call to edit_config the NETCONF message will look like this:
 
 ```xml
-<config>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
     <interface>
 	  <GigabitEthernet>             
@@ -117,6 +119,18 @@ These produce the same output which can be used directly in a scrapli_netconf ca
       </GigabitEthernet>
     </interface>
   </native>
+</config>
+```
+
+
+##### Delete Any Interface (interface_name)
+```xml
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <interfaces xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
+    <interface operation="remove">
+      <name>{{ interface_name }}</name>
+    </interface>
+  </interfaces>
 </config>
 ```
 
@@ -191,8 +205,10 @@ vim ios-xe-native-interface-acl-lxml.py
 ```
 ```python
 from lxml import etree
-def iosXEInterfaceAcl(intf_type, name, acl_name=None, out=False, ins=False):
-	config = etree.Element("config")
+def iosXEInterface(intf_type, name, acl_name=None, out=False, ins=False):
+	config = etree.Element("config",
+		nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
+	)
 	# <native><interfaces><GigabitEthernet>
 	native = etree.SubElement(config, "native",
 		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
@@ -221,7 +237,7 @@ def iosXEInterfaceAcl(intf_type, name, acl_name=None, out=False, ins=False):
 		
 	return config
 	
-config = iosXEInterfaceAcl(
+config = iosXEInterface(
 	intf_type = "GigabitEthernet",
 	name = "4",
 	acl_name = "foo",
@@ -234,7 +250,7 @@ print(etree.tostring(config, pretty_print=True).decode())
 These produce the same output which can be used directly in a scrapli_netconf call to edit_config the NETCONF message will look like this:
 
 ```xml
-<config>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
     <interface>
       <GigabitEthernet>
@@ -254,3 +270,31 @@ These produce the same output which can be used directly in a scrapli_netconf ca
   </native>
 </config>
 ```
+
+
+##### Remove ACL from an Interface (name, acl_name)
+```xml
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <interface>
+      <GigabitEthernet>
+        <name>{{ name }}</name>
+        <ip>
+          <access-group  >
+            < {{direction}} >
+              <acl operation="remove">
+                <acl-name>{{ acl_name }}</acl-name>
+                < {{direction}} />
+              </acl>
+            </ {{direction}} >
+          </access-group>
+        </ip>
+        </GigabitEthernet>
+       </interface>
+    </native>
+</config>
+```
+
+
+
+
