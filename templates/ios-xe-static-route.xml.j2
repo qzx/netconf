@@ -1,0 +1,35 @@
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <ip>
+	  <route>
+	   {%- if vrf_routes %}
+	   <vrf>
+	   {%- for vrf in vrf_routes %}
+	    <name>{{vrf.name}}</name>
+	      {%- for route in vrf.routes %}
+          <ip-route-interface-forwarding-list>
+            <prefix>{{route.prefix}}</prefix>
+            <mask>{{route.mask}}</mask>
+            <fwd-list>
+              <fwd>{{route.gw}}</fwd>
+            </fwd-list>
+          </ip-route-interface-forwarding-list>
+          {%- endfor %}
+         {%- endfor %}
+        </vrf>
+        {%- endif %}
+        {%- if routes %}
+        {%- for route in routes %}
+        <ip-route-interface-forwarding-list>
+          <prefix>{{route.prefix}}</prefix>
+          <mask>{{route.mask}}</mask>
+          <fwd-list>
+            <fwd>{{route.gw}}</fwd>
+          </fwd-list>
+        </ip-route-interface-forwarding-list>
+        {%- endfor %}
+        {%- endif %}
+      </route>
+    </ip>
+  </native>
+</config>

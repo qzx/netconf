@@ -1,0 +1,33 @@
+<config>
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <interface>
+	  <{{intf_type}}>             
+        <name>{{name}}</name>
+        <ip>
+        {%- if not acl_name or True not in [ins, out] %}
+          <access-group operation="remove"/>
+        {%- else %}
+           <access-group>
+           {%- if out %}
+	          <out>
+                <acl>
+                  <acl-name>{{acl_name}}</acl-name>
+                  <out/>
+                </acl>
+              </out>
+            {%- endif %}
+            {%- if ins %}
+              <in>
+                <acl>
+                  <acl-name>{{acl_name}}</acl-name>
+                  <in/>
+                </acl>
+              </in>
+            {%- endif %}
+            </access-group>
+          {%- endif %}
+        </ip>
+      </{{intf_type}}>
+    </interface>
+  </native>
+</config>

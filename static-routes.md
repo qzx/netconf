@@ -1,5 +1,4 @@
-----
-Static Route configuration
+# Static Route configuration
 ----
 ##### Jinja template
 ```shell
@@ -69,6 +68,8 @@ config = template.render(
 	],
 )
 print(config)
+#import c8000v.py
+#c8000v.scrapli_configure([config])
 ```
 ##### lxml etree to build config
 ```shell
@@ -121,6 +122,8 @@ config = iosXEStaticRoutes(
 )
 
 print(etree.tostring(config, pretty_print=True).decode())
+#import c8000v.py
+#c8000v.scrapli_configure([config])
 ```
 ##### Resulting RESTCONF XML
 These produce the same output which can be used directly in a scrapli_netconf call to edit_config the NETCONF message will look like this:
@@ -195,4 +198,5 @@ These produce the same output which can be used directly in a scrapli_netconf ca
     </ip>
   </native>
 </config>
+
 

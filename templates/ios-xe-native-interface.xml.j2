@@ -1,0 +1,23 @@
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <interface>
+	  <{{intf_type}}>             
+        <name>{{name}}</name>
+        <description>{{desc}}</description>
+        {%- if shutdown %}
+        <shutdown/>
+        {%- else %}
+        <shutdown operation="remove"/>
+        {%-endif %}
+        <ip>
+          <address>
+            <primary>
+              <address>{{addr}}</address>
+              <mask>{{mask}}</mask>
+            </primary>
+          </address>
+        </ip>
+      </{{intf_type}}>
+    </interface>
+  </native>
+</config>

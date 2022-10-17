@@ -1,0 +1,29 @@
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <ip>
+  	  <access-list>
+	    <standard xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+		  <name>{{ name }}</name>
+		  {%- for entry in entries %}
+		  <access-list-seq-rule>
+		    <sequence>{{ loop.index*10 }}</sequence>
+		    <{{ entry.action }}>
+			  <std-ace>
+			    {%- if entry.addr == "any" %}
+				  <any/>
+			    {%- else %}
+			    <ipv4-address-prefix>{{ entry.addr }}</ipv4-address-prefix>
+			    <ipv4-prefix>{{ entry.addr }}</ipv4-prefix>
+			    {%- if entry.mask %}
+			    <mask>{{ entry.mask }}</mask>
+			    {%- endif %}
+			    {%- endif %}
+			  </std-ace>
+		    </{{ entry.action }}>
+		  </access-list-seq-rule>
+		  {%- endfor %}
+	    </standard>
+	  </access-list>
+    </ip>
+  </native>
+</config>

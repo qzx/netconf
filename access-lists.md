@@ -111,6 +111,8 @@ config = template.render(
 	]
 )
 print(config)
+#import c8000v
+#c8000v.ncclient_configure([config])
 ```
 ```shell
 # Create a script to render the extended ACL
@@ -160,8 +162,8 @@ config = template.render(
 	]
 )
 print(config)
-import c8000v
-c8000v.scrapli_configure([config])
+#import c8000v
+#c8000v.ncclient_configure([config])
 ```
 ##### lxml etree to build config
 ```shell
@@ -232,6 +234,8 @@ config = iosXEStandardAcl(
 )
 
 print(etree.tostring(config, pretty_print=True).decode())
+#import c8000v
+#c8000v.ncclient_configure([config])
 ```
 ```shell
 # The above template and render is equivalent to the following python script
@@ -319,7 +323,7 @@ config = iosXEExtendedAcl(
 config_string = etree.tostring(config).decode()
 print(etree.tostring(config, pretty_print=True).decode())
 #import c8000v
-#c8000v.configure(config_string)
+#c8000v.ncclient_configure([config])
 ```
 ##### XML Output - Both methods produce the same output
 ```xml
@@ -425,7 +429,7 @@ print(etree.tostring(config, pretty_print=True).decode())
 ##### Delete Extended ACL (name)
 ```xml
 <config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
     <ip>
       <access-list>
         <extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl" operation="remove">

@@ -1,4 +1,4 @@
-# Interfaces
+# Interface configuration
 ----
 ### Interface IP and Desc
 ----
@@ -52,6 +52,8 @@ config = template.render(
 	shutdown=False
 )
 print(config)
+#import c8000v.py
+#c8000v.scrapli_configure([config])
 ```
 ##### lxml etree to build config
 ```shell
@@ -96,6 +98,8 @@ config = iosXEInterface(
 )
 
 print(etree.tostring(config, pretty_print=True).decode())
+#import c8000v.py
+#c8000v.scrapli_configure([config])
 ```
 ##### Resulting RESTCONF XML
 These produce the same output which can be used directly in a scrapli_netconf call to edit_config the NETCONF message will look like this:
@@ -197,6 +201,8 @@ config = template.render(
 )
 
 print(config)
+#import c8000v.py
+#c8000v.scrapli_configure([config])
 ```
 ##### lxml etree to build config
 ```shell
@@ -245,6 +251,8 @@ config = iosXEInterface(
 )
 
 print(etree.tostring(config, pretty_print=True).decode())
+#import c8000v.py
+#c8000v.scrapli_configure([config])
 ```
 ##### Resulting RESTCONF XML
 These produce the same output which can be used directly in a scrapli_netconf call to edit_config the NETCONF message will look like this:
@@ -294,7 +302,3 @@ These produce the same output which can be used directly in a scrapli_netconf ca
     </native>
 </config>
 ```
-
-
-
-
