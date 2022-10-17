@@ -71,7 +71,7 @@ vim templates/ios-xe-acl-extended.xml.j2
 			  {%- if entry.port %}
 			    <dst-eq>{{ entry.port }}</dst-eq>
 			  {%- endif %}
-			  {%- if entry.range %}
+			  {%- elif entry.range %}
 			  <dst-range1>{{ entry.range[0] }}</dst-range1>
 	          <dst-range2>{{ entry.range[1] }}</dst-range2>
 			  {%- endif %}
