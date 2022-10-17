@@ -1,7 +1,6 @@
 # IOS XE NetConf documentation
 ----
-See also:
-[[interfaces.md]]
+
 ### Some notes on NETCONF automation
 
 scrapli_netconf is a little bit more forgiving with the namespace declaration in the \<config\> block. That is to say ncclient doesn't really work if the namespace isn't declared:
