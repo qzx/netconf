@@ -421,7 +421,7 @@ There are two main ways of configuring an interface on an IOS-XE utilizing YANG 
 ##### Configure NTP (Set)
 ```xml
 <config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
 		<ntp>
 			<server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
 				<server-list>
@@ -436,7 +436,7 @@ There are two main ways of configuring an interface on an IOS-XE utilizing YANG 
 ##### Configure NTP (Delete)
 ```xml
 <config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
 		<ntp>
 			<server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
 				<server-list operation="remove">
