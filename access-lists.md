@@ -1,5 +1,6 @@
 # IOS XE access-lists
 ----
+
 ##### Jinja template
 ```shell
 # We can create a template for standard ACL creation
@@ -7,7 +8,7 @@
 vim templates/ios-xe-acl-standard.xml.j2
 ```
 ```jinja2
-<config>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
     <ip>
   	  <access-list>
@@ -43,7 +44,7 @@ vim templates/ios-xe-acl-standard.xml.j2
 vim templates/ios-xe-acl-extended.xml.j2
 ```
 ```jinja2
-<config>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
     <ip>
 	  <access-list>
@@ -79,8 +80,8 @@ vim templates/ios-xe-acl-extended.xml.j2
 		  {%- endfor %}
 	    </extended>
 	  </access-list>
-    </native>
-  </ip>
+    </ip>
+  </native>
 </config>
 ```
 ##### Python scripts
@@ -122,7 +123,7 @@ environment = Environment(loader=FileSystemLoader("templates/"))
 template = environment.get_template("ios-xe-acl-extended.xml.j2")
 
 config = template.render(
-	name="foo",
+	name="baboo",
 	entries=[
 		{
 			"action": "permit",
@@ -159,6 +160,8 @@ config = template.render(
 	]
 )
 print(config)
+import c8000v
+c8000v.scrapli_configure([config])
 ```
 ##### lxml etree to build config
 ```shell
@@ -167,20 +170,25 @@ vim ios-xe-native-acl-standard-lxml.py
 ```
 ```python
 from lxml import etree
+import c8000v
+
 def iosXEStandardAcl(name, entries=[]):
-	config = etree.Element("config")
+	config = etree.Element("config",
+		nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
+	)
 	# <native><interfaces><GigabitEthernet>
 	native = etree.SubElement(config, "native",
 		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
 	)
 	ip = etree.SubElement(native, "ip")
 	acl = etree.SubElement(ip, "access-list")
-	standard_acl = etree.SubElement(acl, "standard",
-		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-acl'}
-	)
-	# Configure name and description
-	etree.SubElement(standard_acl, "name").text = name
+	
 	if len(entries) > 0:
+		standard_acl = etree.SubElement(acl, "standard",
+			nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-acl'}
+		)
+		# Configure name and description
+		etree.SubElement(standard_acl, "name").text = name
 		for entry in entries:
 			acl_seq = "{seq}".format(seq=10*entries.index(entry)+10)
 			rule = etree.SubElement(standard_acl, "access-list-seq-rule")
@@ -196,7 +204,12 @@ def iosXEStandardAcl(name, entries=[]):
 				etree.SubElement(line, "ipv4-prefix").text = entry['addr']
 				if 'mask' in entry:
 					etree.SubElement(line, "mask").text = entry['mask']
-			
+	else:
+		standard_acl = etree.SubElement(acl, "standard",
+			nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-acl'},
+			operation="remove"
+		)
+		
 	return config
 	
 config = iosXEStandardAcl(
@@ -227,7 +240,9 @@ vim ios-xe-native-acl-extended-lxml.py
 ```python
 from lxml import etree
 def iosXEExtendedAcl(name, entries=[]):
-	config = etree.Element("config")
+	config = etree.Element("config",
+		nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
+	)
 	# <native><interfaces><GigabitEthernet>
 	native = etree.SubElement(config, "native",
 		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
@@ -308,7 +323,7 @@ print(etree.tostring(config, pretty_print=True).decode())
 ```
 ##### XML Output - Both methods produce the same output
 ```xml
-<config>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
 	<access-list>
 	  <standard xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
@@ -339,7 +354,7 @@ print(etree.tostring(config, pretty_print=True).decode())
 </config>
 ```
 ```xml
-<config>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
 	<access-list>
 	  <extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
@@ -393,3 +408,32 @@ print(etree.tostring(config, pretty_print=True).decode())
   </native>
 </config>
 ```
+##### Delete Standard ACL (name)
+```xml
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <ip>
+      <access-list>
+        <standard xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl" operation="remove">
+          <name>10</name>
+        </standard>
+      </access-list>
+    </ip>
+  </native>
+</config>
+```
+##### Delete Extended ACL (name)
+```xml
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <ip>
+      <access-list>
+        <extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl" operation="remove">
+          <name>foo</name>
+        </extended>
+      </access-list>
+    </ip>
+  </native>
+</config>
+```
+
