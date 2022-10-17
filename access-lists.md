@@ -1,4 +1,4 @@
-# Access Lists
+# IOS XE access-lists
 ----
 ##### Jinja template
 ```shell
@@ -9,29 +9,31 @@ vim templates/ios-xe-acl-standard.xml.j2
 ```jinja2
 <config>
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-	<access-list>
-	  <standard xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
-		<name>{{ name }}</name>
-		{%- for entry in entries %}
-		<access-list-seq-rule>
-		  <sequence>{{ loop.index*10 }}</sequence>
-		  <{{ entry.action }}>
-			<std-ace>
-			  {%- if entry.addr == "any" %}
-			    <any/>
-			  {%- else %}
-			  <ipv4-address-prefix>{{ entry.addr }}</ipv4-address-prefix>
-			  <ipv4-prefix>{{ entry.addr }}</ipv4-prefix>
-			  {%- if entry.mask %}
-			  <mask>{{ entry.mask }}</mask>
-			  {%- endif %}
-			  {%- endif %}
-			</std-ace>
-		  </{{ entry.action }}>
-		</access-list-seq-rule>
-		{%- endfor %}
-	  </standard>
-	</access-list>
+    <ip>
+  	  <access-list>
+	    <standard xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+		  <name>{{ name }}</name>
+		  {%- for entry in entries %}
+		  <access-list-seq-rule>
+		    <sequence>{{ loop.index*10 }}</sequence>
+		    <{{ entry.action }}>
+			  <std-ace>
+			    {%- if entry.addr == "any" %}
+				  <any/>
+			    {%- else %}
+			    <ipv4-address-prefix>{{ entry.addr }}</ipv4-address-prefix>
+			    <ipv4-prefix>{{ entry.addr }}</ipv4-prefix>
+			    {%- if entry.mask %}
+			    <mask>{{ entry.mask }}</mask>
+			    {%- endif %}
+			    {%- endif %}
+			  </std-ace>
+		    </{{ entry.action }}>
+		  </access-list-seq-rule>
+		  {%- endfor %}
+	    </standard>
+	  </access-list>
+    </ip>
   </native>
 </config>
 ```
@@ -43,40 +45,42 @@ vim templates/ios-xe-acl-extended.xml.j2
 ```jinja2
 <config>
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-	<access-list>
-	  <extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
-		<name>{{ name }}</name>
-		{%- for entry in entries %}
-		<access-list-seq-rule>
-		  <sequence>{{ loop.index*10 }}</sequence>
-		  <ace-rule>
-			<action>{{ entry.action }}</action>
-			<protocol>{{ entry.proto }}</protocol>
-			{%- if entry.src_addr == "any" %}
-			  <any/>
-			{%- else %}
-			  <ipv4-address>{{ entry.src_addr }}</ipv4-address>
-			  <mask>{{ entry.src_mask }}</mask>
-			{%- endif %}
-			{%- if entry.dst_addr == "any" %}
-			  <dst-any/>
-			{%- else %}
-			  <dest-ipv4-address>{{ entry.dst_addr }}</dest-ipv4-address>
-			  <dest-mask>{{ entry.dst_mask }}</dest-mask>
-			{%- endif %}
-			{%- if entry.port %}
-			  <dst-eq>{{ entry.port }}</dst-eq>
-			{%- endif %}
-			{%- if entry.range %}
-			<dst-range1>{{ entry.range[0] }}</dst-range1>
-	        <dst-range2>{{ entry.range[1] }}</dst-range2>
-			{%- endif %}
-		  </ace-rule>
-		</access-list-seq-rule>
-		{%- endfor %}
-	  </extended>
-	</access-list>
-  </native>
+    <ip>
+	  <access-list>
+	    <extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+		  <name>{{ name }}</name>
+		  {%- for entry in entries %}
+		  <access-list-seq-rule>
+		    <sequence>{{ loop.index*10 }}</sequence>
+		    <ace-rule>
+			  <action>{{ entry.action }}</action>
+			  <protocol>{{ entry.proto }}</protocol>
+			  {%- if entry.src_addr == "any" %}
+			    <any/>
+			  {%- else %}
+			    <ipv4-address>{{ entry.src_addr }}</ipv4-address>
+			    <mask>{{ entry.src_mask }}</mask>
+			  {%- endif %}
+			  {%- if entry.dst_addr == "any" %}
+			    <dst-any/>
+			  {%- else %}
+			    <dest-ipv4-address>{{ entry.dst_addr }}</dest-ipv4-address>
+			    <dest-mask>{{ entry.dst_mask }}</dest-mask>
+			  {%- endif %}
+			  {%- if entry.port %}
+			    <dst-eq>{{ entry.port }}</dst-eq>
+			  {%- endif %}
+			  {%- if entry.range %}
+			  <dst-range1>{{ entry.range[0] }}</dst-range1>
+	          <dst-range2>{{ entry.range[1] }}</dst-range2>
+			  {%- endif %}
+		    </ace-rule>
+		  </access-list-seq-rule>
+		  {%- endfor %}
+	    </extended>
+	  </access-list>
+    </native>
+  </ip>
 </config>
 ```
 ##### Python scripts
