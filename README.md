@@ -1,7 +1,6 @@
 # IOS XE NetConf documentation
 ----
-### Python device module
-To start with we're going to write a little module for our device to perform actions on our 8000V router. Some things to keep in mind when working with NETCONF and the various clients.
+### Some notes on NETCONF automation
 
 scrapli_netconf is a little bit more forgiving with the namespace declaration in the \<config\> block. That is to say ncclient doesn't really work if the namespace isn't declared:
 
@@ -16,6 +15,7 @@ scrapli_netconf is a little bit more forgiving with the namespace declaration in
 	<elements />
 </config>
 ```
+
 This might be the results of the following code in ncclient doing something silly when it's absent:
 ```python
 # This function is called on all top level objects.
@@ -26,6 +26,77 @@ qualify = lambda tag, ns=BASE_NS_1_0: tag if ns is None else "{%s}%s" % (ns, tag
 
 """Qualify a *tag* name with a *namespace*, in :mod:`~xml.etree.ElementTree` fashion i.e. *{namespace}tagname*."""
 ```
+
+The main messages that are used are the hello at the start of any transaction, the get-config rpc
+and the edit-config rpc. There are others to explore, and we will do that in a future update to these docs. (these include lock, unlock, validation and commit. For now we handle this in client)
+##### Hello
+```xml
+<!--
+	Keep in mind that the end sequence for the hello message is ONLY there for 
+	the hello message in modern versions of NETCONF. The end sequence ]]>]]> 
+	which was mandated in the original NETCONF spec as the end sequence to
+	all message has been removed for that purpose. It only exists in the hello
+	message in order to keep backwards compatability
+-->
+
+<?xml version="1.0" encoding="utf-8"?>
+    <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+        <capabilities>
+            <capability>urn:ietf:params:netconf:base:1.0</capability>
+        </capabilities>
+</hello>]]>]]>
+
+<?xml version="1.0" encoding="utf-8"?>
+    <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+        <capabilities>
+            <capability>urn:ietf:params:netconf:base:1.1</capability>
+        </capabilities>
+</hello>]]>]]> 
+```
+##### Get-Config | source is candidate or running
+```xml
+<get-config><source><{source}/></source></get-config>
+```
+##### Edit-Config | target is the config to edit (output from our functions/tmplts)
+```xml
+<edit-config><target><{target}/></target></edit-config>
+```
+##### Delete-Config | target is which config block to delete
+```xml
+<edit-config><target><{target}/></target></edit-config>
+```
+##### Lock | target is the config source, candidate or running
+```xml
+<lock><target><{target}/></target></lock>
+```
+##### Unlock | same target as above
+```xml
+<unlock><target><{target}/></target></unlock>
+```
+##### Commit
+```xml
+<commit/>
+```
+##### Pure RPC | Message ID must be present, and in sequence
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='{message_id}'></rpc>
+```
+##### Validate | source is the config you've written to to validate
+```xml
+<validate><source><{source}/></source></validate>
+```
+##### Filter (subtree) | filter type
+```xml
+<filter type='subtree'></filter>
+```
+##### Filter (XPath) | xpath is the XPath filter to use
+```xml
+<filter type='xpath' select='{xpath}'></filter>
+```
+
+----
+### Python device module
+To start with we're going to write a little module for our device to perform actions on our 8000V router. Some things to keep in mind when working with NETCONF and the various clients.
 
 ```shell
 # c8000v.py is a python library that contains simple functions to interact
@@ -112,38 +183,6 @@ def stringconfig(cfg):
 
 ----
 ## NETCONF Snippets
-##### Hello
-```xml
-<!--
-	Keep in mind that the end sequence for the hello message is ONLY there for 
-	the hello message in modern versions of NETCONF. The end sequence ]]>]]> 
-	which was mandated in the original NETCONF spec as the end sequence to
-	all message has been removed for that purpose. It only exists in the hello
-	message in order to keep backwards compatability
--->
-
-<?xml version="1.0" encoding="utf-8"?>
-    <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-        <capabilities>
-            <capability>urn:ietf:params:netconf:base:1.0</capability>
-        </capabilities>
-</hello>]]>]]>
-
-<?xml version="1.0" encoding="utf-8"?>
-    <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-        <capabilities>
-            <capability>urn:ietf:params:netconf:base:1.1</capability>
-        </capabilities>
-</hello>]]>]]> 
-```
-##### Get-Config
-```xml
-<get-config><source><{source}/></source></get-config>
-```
-##### Edit-Config
-```xml
-<edit-config><target><{target}/></target></edit-config>
-```
 
 ### Python Preparation Snippets
 See individual object configurations for implementations
@@ -339,5 +378,4 @@ There are two main ways of configuring an interface on an IOS-XE utilizing YANG 
 	</native>
 </config>
 ```
-
 
