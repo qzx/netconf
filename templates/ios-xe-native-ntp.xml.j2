@@ -1,0 +1,13 @@
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ntp>
+        <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+          {%- for addr in servers %}
+          <server-list>
+            <ip-address>{{ addr }}</ip-address>
+          </server-list>
+          {%- endfor %}
+        </server>
+      </ntp>
+    </native>
+</config>

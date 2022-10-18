@@ -273,3 +273,193 @@ c8000v.scrapli_configure(configs)
 # finally write to startup-config
 c8000v.scrapli_save()
 ```
+
+Great, we're now set up to build our router config with YANG and NETCONF. Let's create a short dev cycle to explore configuration elements, create templates and configure our devices.
+
+## Python NETCONF Development cycle
+----
+We'll start by configuring two dummy ntp servers so we can see what the config looks like. We don't care about most features at this time, but if we wanted to deal with VRFs for instance, we'd want to configure that on box too before getting the config.
+
+### Get the relevant config block from device
+```shell
+# We want to configure NTP, but we're not sure where it is
+# our script already prefixes /native/ to our filter string
+$ python get_native_config.py ntp
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="101">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ntp>
+        <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+          <server-list>
+            <ip-address>1.1.1.1</ip-address>
+          </server-list>
+          <server-list>
+            <ip-address>1.1.1.2</ip-address>
+          </server-list>
+        </server>
+      </ntp>
+    </native>
+  </data>
+</rpc-reply>
+```
+
+We can now translate this into a template. We just need to identify our variables and loops. Our variables here are the IP addresses of the given NTP servers, and our looping point is on the  server-list object.
+
+### Create a jinja2 template
+```shell
+# Then we can create a shell script to render the template
+vim templates/ios-xe-native-ntp.xml.j2
+```
+```jinja2
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ntp>
+        <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+          {%- for addr in servers %}
+          <server-list>
+            <ip-address>{{ addr }}</ip-address>
+          </server-list>
+          {%- endfor %}
+        </server>
+      </ntp>
+    </native>
+</config>
+```
+
+Ok, that was relatively painless, we just had to replace the rpc-reply and data tags with the config tag and introduce loops and variables. Our template will take a list called servers which should contain IP addresses
+
+### Use jinja2 template to configure device
+```shell
+# Then we can create a shell script to render the template
+vim ios-xe-native-ntp.py
+```
+```python
+from jinja2 import Environment, FileSystemLoader
+
+environment = Environment(loader=FileSystemLoader("templates/"))
+template = environment.get_template("ios-xe-native-ntp.xml.j2")
+
+config = template.render(
+	servers=["162.159.200.1", "185.181.223.169"]
+)
+print(config)
+#import c8000v
+#c8000v.ncclient_configure([config])
+```
+
+We can run the script as is to see that we're generating the config block we want. We could then wrap this with the RPC tag and send it to the device over the raw SSH connection we explored earlier, or just send it with the python module we built.
+
+##### Template config output
+```shell
+$ python ios-xe-native-ntp.py
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ntp>
+        <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+          <server-list>
+            <ip-address>162.159.200.1</ip-address>
+          </server-list>
+          <server-list>
+            <ip-address>185.181.223.169</ip-address>
+          </server-list>
+        </server>
+      </ntp>
+    </native>
+</config>
+```
+
+Looks good... but if we don't want templates to keep track of and prefer to do things all in code, could we do that?... Sure can, introducing lxml.etree. Not my favorite library, but it can get the job done for us here. 
+
+Small note on using lxml.etree, scrapli_netconf takes strings as input, where ncclient can take either strings or lxml.etree elements. To make life easier for us, we've added a function in our module to cast lxml.etree elements as strings prior to sending to our device.
+
+### Explore lxml.etree as alternative to templates
+```shell
+# The above template and render is equivalent to the following python script
+vim ios-xe-native-ntp-lxml.py
+```
+```python
+from lxml import etree
+def iosXEntp(servers=[]):
+	config = etree.Element("config",
+		nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
+	)
+	# <native><interfaces><GigabitEthernet>
+	native = etree.SubElement(config, "native",
+		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
+	)
+
+	# Create the ntp and server children
+	ntp = etree.SubElement(native, "ntp")
+	server = etree.SubElement(ntp, "server",
+		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-ntp'}
+	)
+
+	# Loop in the same place and assign our variable to the ip-address field
+	for addr in servers:
+		entry = etree.SubElement(server, "server-list")
+		etree.SubElement(entry, "ip-address").text = addr
+	
+	return config
+	
+config = iosXEntp(
+	servers=["162.159.200.1", "185.181.223.169"]
+)
+
+print(etree.tostring(config, pretty_print=True).decode())
+#import c8000v
+#c8000v.ncclient_configure([config])
+```
+
+When we subsequently run this script, we should have identical output to the one based on the template from before:
+##### LXML created config output
+```shell
+$ python ios-xe-native-ntp-lxml.py
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <ntp>
+      <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+        <server-list>
+          <ip-address>162.159.200.1</ip-address>
+        </server-list>
+        <server-list>
+          <ip-address>185.181.223.169</ip-address>
+        </server-list>
+      </server>
+    </ntp>
+  </native>
+</config>
+```
+
+Great! We now have two methods of creating configuration objects. Lets bring it home by applying our configuration and reading it back. We just uncomment the bottom two lines in either script to send the config to our device
+
+##### Configure and read
+```shell
+$ python ios-xe-native-ntp-lxml.py
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="urn:uuid:3bbb69c4-309c-49d3-bb1f-452f05b20bfb" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"><ok/></rpc-reply>
+
+
+$ python get_native_config.py ntp
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="101">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ntp>
+        <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+          <server-list>
+            <ip-address>162.159.200.1</ip-address>
+          </server-list>
+          <server-list>
+            <ip-address>185.181.223.169</ip-address>
+          </server-list>
+        </server>
+      </ntp>
+    </native>
+  </data>
+</rpc-reply>
+```
+
+That was a lot of fun... we can now create these structures for various elements:
+
+[IOS XE Interfaces](https://github.com/qzx/netconf/blob/main/interfaces.md)  
+[IOS XE Static Routes](https://github.com/qzx/netconf/blob/main/static-routes.md)  
+[IOS XE Access Lists](https://github.com/qzx/netconf/blob/main/access-lists.md) 
