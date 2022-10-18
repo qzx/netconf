@@ -166,7 +166,7 @@ cisco@8000v's password:
 
 #### Adding filters to our requests
 ----
-Ok well, that was neat... but that's a lot of configuration. Can we filter it somehow? Sure can! We even have to types of filters we can use:
+Ok well, that was neat... but that's a lot of configuration. Can we filter it somehow? Sure can! We even have two types of filters we can use:
 
 ##### Filter (subtree) | filter type
 ```xml
@@ -512,4 +512,7 @@ we should now be graceful and close our session before we leave
   <close-session/>  
 </rpc>]]>]]>
 ```
+
+
+Great, now let's get a bit of [Python power](https://github.com/qzx/netconf/blob/main/python-netconf.md)
 
