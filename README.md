@@ -382,6 +382,14 @@ Now we just need to save our configuration to startup
 </rpc-reply>]]>]]>
 ```
 
+we should now be graceful and close our session before we leave
+##### Close session
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="110">  
+  <close-session/>  
+</rpc>]]>]]>
+```
+
 #### Configure using candidate-datastore
 ----
 In order to get commits we need to enable the candidate datastore on the device:
@@ -496,3 +504,12 @@ Now we just need to save our configuration to startup
   </result>
 </rpc-reply>]]>]]>
 ```
+
+we should now be graceful and close our session before we leave
+##### Close session
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="110">  
+  <close-session/>  
+</rpc>]]>]]>
+```
+
