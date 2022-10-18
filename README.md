@@ -11,6 +11,7 @@ Then we'll explore the two clients that are available and options for structurin
 [IOS XE Access Lists](https://github.com/qzx/netconf/blob/main/access-lists.md)  
 [Snippets and blocks](https://github.com/qzx/netconf/blob/main/snippets.md)
 
+
 ## Configuration
 ----
 ```c
@@ -28,7 +29,7 @@ aaa authorization exec default local
 username cisco privilege 15 secret 0 cisco
 !
 netconf-yang
-netconf-yang feature candidate-datastore
+!netconf-yang feature candidate-datastore
 !
 interface GigabitEthernet1
  ip address 192.168.255.72 255.255.255.0
@@ -360,5 +361,135 @@ Let's finish up by validating the configuration:
 </rpc>]]>]]>
 ```
 
+Now we just need to save our configuration to startup
+##### Saving configuration
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="107">  
+  <save-config xmlns="http://cisco.com/yang/cisco-ia"/>  
+</rpc>]]>]]>
+```
 
+##### Successful save
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="107">
+  <result xmlns='http://cisco.com/yang/cisco-ia'>
+    Save running-config successful
+  </result>
+</rpc-reply>]]>]]>
+```
 
+#### Configure using candidate-datastore
+----
+In order to get commits we need to enable the candidate datastore on the device:
+```
+netconf-yang feature candidate-datastore
+```
+The flow then looks like this:
+##### Say hello
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+    <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+        <capabilities>
+            <capability>urn:ietf:params:netconf:base:1.0</capability>
+        </capabilities>
+</hello>]]>]]>
+```
+##### Lock the configuration
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='101'>
+  <lock>
+    <target>
+      <candidate/>
+    </target>
+  </lock>
+</rpc>]]>]]>
+```
+##### Send the proposed configuration block
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='102'>
+  <edit-config>
+    <target>
+      <candidate/>
+    </target>
+      <config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+	    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+          <hostname>8000v</hostname>
+        </native>
+      </config>
+  </edit-config>
+</rpc>]]>]]>
+```
+##### Validate the configuration
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='103'>
+  <validate>
+    <source>
+      <candidate/>
+    </source>
+  </validate>
+</rpc>]]>]]>
+```
+##### Commit the configuration
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='104'>
+  <commit/>
+</rpc>]]>]]>
+```
+##### Unlock the configuration
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='105'>
+  <unlock>
+    <target>
+      <candidate/>
+    </target>
+  </unlock>
+</rpc>]]>]]>
+```
+##### Get configuration to confirm
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="106">
+  <get-config>
+   <filter type="xpath" select="/native/hostname"></filter>
+    <source>
+      <candidate/>
+    </source>
+  </get-config>
+</rpc>]]>]]>
+```
+
+Whoah.. neat! We just changed our config and commited it. Each time we send a message we should get the following reply if things are going well:
+```xml
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="105">
+  <ok/>
+</rpc-reply>]]>]]>
+```
+
+And for our final message we should get our new config data back:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="106">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <hostname>8000v</hostname>
+    </native>
+  </data>
+</rpc-reply>]]>]]>
+```
+
+Now we just need to save our configuration to startup
+##### Saving configuration
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="109">  
+  <save-config xmlns="http://cisco.com/yang/cisco-ia"/>  
+</rpc>]]>]]>
+```
+##### Successful save
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="109">
+  <result xmlns='http://cisco.com/yang/cisco-ia'>
+    Save running-config successful
+  </result>
+</rpc-reply>]]>]]>
+```
