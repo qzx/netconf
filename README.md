@@ -6,10 +6,13 @@ So, we've decided to use NETCONF to configure our devices. In this repository we
 Then we'll explore the two clients that are available and options for structuring code to utilize NETCONF.
 
 ## SEE ALSO:
+[Python power](https://github.com/qzx/netconf/blob/main/python-netconf.md)
+
 [IOS XE Interfaces](https://github.com/qzx/netconf/blob/main/interfaces.md)  
 [IOS XE Static Routes](https://github.com/qzx/netconf/blob/main/static-routes.md)  
 [IOS XE Access Lists](https://github.com/qzx/netconf/blob/main/access-lists.md)  
 [Snippets and blocks](https://github.com/qzx/netconf/blob/main/snippets.md)
+
 
 
 ## Configuration
