@@ -1,56 +1,87 @@
-# IOS XE NetConf documentation
+# Getting started with NETCONF
 ----
+
+So, we've decided to use NETCONF to configure our devices. In this repository we'll explore the YANG messages we need to communicate with our device, perform RAW NETCONF operations on a Cisco 8000v router and establish a workflow.
+
+Then we'll explore the two clients that are available and options for structuring code to utilize NETCONF.
+
 ## SEE ALSO:
 [IOS XE Interfaces](https://github.com/qzx/netconf/blob/main/interfaces.md)  
 [IOS XE Static Routes](https://github.com/qzx/netconf/blob/main/static-routes.md)  
 [IOS XE Access Lists](https://github.com/qzx/netconf/blob/main/access-lists.md)  
+[Snippets and blocks](https://github.com/qzx/netconf/blob/main/snippets.md)
 
-There's additionally a template
-[IOS XE YANG DOC Template](https://github.com/qzx/netconf/blob/main/doc_template.md)
-
-### Some notes on NETCONF automation  
-
-We'll be using two libraries to communicate with our devices, and two methods of generating XML configs with python. 
-* [Scrapli Netconf](https://scrapli.github.io/scrapli_netconf/)
-* [NCClient](https://ncclient.readthedocs.io/en/latest/)
-
-scrapli_netconf is a little bit more forgiving with the namespace declaration in the \<config\> block. That is to say ncclient doesn't really work if the namespace isn't declared:
-
-```xml
-<!-- This will work on both ncclient and scrapli_netconf with a c8000v -->
-<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-	<elements />
-</config>
-
-<!-- This will only work with scrapli_netconf NetconfDriver -->
-<config>
-	<elements />
-</config>
+## Configuration
+----
+```c
+# First we need to configure our cisco router with an IP address
+# username, login local and netconf-yang
+conf t
+hostname c8000v
+!
+aaa new-model
+aaa session-id common
+!
+aaa authentication login default local
+aaa authorization exec default local
+!
+username cisco privilege 15 secret 0 cisco
+!
+netconf-yang
+netconf-yang feature candidate-datastore
+!
+interface GigabitEthernet1
+ ip address 192.168.255.72 255.255.255.0
+ no shutdown
+ exit
+!
+line vty 0 4
+ transport input ssh
+ end
+wr
 ```
 
-This might be the results of the following code in ncclient doing something silly when it's absent:
-```python
-# This function is called on all top level objects.
-# This piece of code is also why ncclient will never work with 
-#  older IOS 15.x devices, as they only support old RFC4741 NETCONF 
-#  and that doesn't tolerate overly verbose namespace headers.
-qualify = lambda tag, ns=BASE_NS_1_0: tag if ns is None else "{%s}%s" % (ns, tag)
+Now we can connect to our router with SSH
+```shell
+$ ssh cisco@8000v
+Password: 
 
-"""Qualify a *tag* name with a *namespace*, in :mod:`~xml.etree.ElementTree` fashion i.e. *{namespace}tagname*."""
+8000v#
 ```
+Likewise we can connect to the netconf subsystem with ssh
+```shell
+$ ssh cisco@8000v -p 830 -s netconf
+cisco@8000v's password: 
+<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+<capabilities>
+<capability>urn:ietf:params:netconf:base:1.0</capability>
+<capability>urn:ietf:params:netconf:base:1.1</capability>
+<capability>urn:ietf:params:netconf:capability:writable-running:1.0</capability>
+<capability>urn:ietf:params:netconf:capability:rollback-on-error:1.0</capability>
+<capability>urn:ietf:params:netconf:capability:validate:1.0</capability>
+<capability>urn:ietf:params:netconf:capability:validate:1.1</capability>
+<capability>urn:ietf:params:netconf:capability:xpath:1.0</capability>
+<capability>urn:ietf:params:netconf:capability:notification:1.0</capability>
+<capability>urn:ietf:params:netconf:capability:interleave:1.0</capability>
+<capability>urn:ietf:params:netconf:capability:with-defaults:1.0?basic-mode=explicit&amp;also-supported=report-all-tagged,report-all</capability>
+<capability>urn:ietf:params:netconf:capability:yang-library:1.0?revision=2016-06-21&amp;module-set-id=62fce412ef7ae70741dbc9b96d64dda6</capability>
+.
+.
+.
+<capability>
+        urn:ietf:params:netconf:capability:notification:1.1
+      </capability>
+</capabilities>
+<session-id>26</session-id></hello>]]>]]>
+```
+NOTE: The end of the hello message ']]>]]>' this character sequence comes at the end of each message to indicate the message is over.
 
-The main messages that are used are the hello at the start of any transaction, the get-config rpc
-and the edit-config rpc. There are others to explore, and we will do that in a future update to these docs. 
-##### Hello
+### RESTCONF RPC communication
+----
+Now we're ready to interact with our device with NETCONF. The connection needs to start with a hello message (just like the one we received from the device) where we indicate our capabilities.
+##### Hello messages
 ```xml
-<!--
-	Keep in mind that the end sequence for the hello message is ONLY there for 
-	the hello message in modern versions of NETCONF. The end sequence ]]>]]> 
-	which was mandated in the original NETCONF spec as the end sequence to
-	all message has been removed for that purpose. It only exists in the hello
-	message in order to keep backwards compatability
--->
-
 <?xml version="1.0" encoding="utf-8"?>
     <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
         <capabilities>
@@ -58,6 +89,7 @@ and the edit-config rpc. There are others to explore, and we will do that in a f
         </capabilities>
 </hello>]]>]]>
 
+<!-- This message indicates netconf 1.1 capabilities-->
 <?xml version="1.0" encoding="utf-8"?>
     <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
         <capabilities>
@@ -65,38 +97,73 @@ and the edit-config rpc. There are others to explore, and we will do that in a f
         </capabilities>
 </hello>]]>]]> 
 ```
-##### Get-Config | source is candidate or running
-```xml
-<get-config><source><{source}/></source></get-config>
-```
-##### Edit-Config | target is the config to edit (output from our functions/tmplts)
-```xml
-<edit-config><target><{target}/></target></edit-config>
-```
-##### Delete-Config | target is which config block to delete
-```xml
-<edit-config><target><{target}/></target></edit-config>
-```
-##### Lock | target is the config source, candidate or running
-```xml
-<lock><target><{target}/></target></lock>
-```
-##### Unlock | same target as above
-```xml
-<unlock><target><{target}/></target></unlock>
-```
-##### Commit
-```xml
-<commit/>
-```
+Once we've been polite and said hello, we can start asking the device to do things for us. Each message we send needs to have a message ID which increments sequencially and wrapped in a RPC message:
 ##### Pure RPC | Message ID must be present, and in sequence
 ```xml
 <rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='{message_id}'></rpc>
 ```
-##### Validate | source is the config you've written to to validate
+We'll use this to wrap our get config request
+##### Get-Config | source is candidate or running
 ```xml
-<validate><source><{source}/></source></validate>
+<get-config><source><{source}/></source></get-config>
 ```
+Our request to get the running config will therefor look like this:
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='102'>
+  <get-config>
+    <source>
+      <running/>
+    </source>
+  </get-config>
+</rpc>
+```
+
+##### Getting config from router with SSH NETCONF CLI
+```shell
+$ ssh cisco@8000v -p 830 -s netconf
+cisco@8000v's password:
+```
+**ROUTER SENDS:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <capabilities>
+  ...
+  </capabilities>
+</hello>]]>]]>
+```
+**WE SEND:**
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+    <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+        <capabilities>
+            <capability>urn:ietf:params:netconf:base:1.0</capability>
+        </capabilities>
+</hello>]]>]]>
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='102'>
+  <get-config>
+    <source>
+      <running/>
+    </source>
+  </get-config>
+</rpc>]]>]]>
+```
+**ROUTER SENDS:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="102">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    ... Router configuration comes here
+	</native>
+  </data>
+</rpc-reply>]]>]]>
+```
+
+#### Adding filters to our requests
+----
+Ok well, that was neat... but that's a lot of configuration. Can we filter it somehow? Sure can! We even have to types of filters we can use:
+
 ##### Filter (subtree) | filter type
 ```xml
 <filter type='subtree'></filter>
@@ -105,358 +172,193 @@ and the edit-config rpc. There are others to explore, and we will do that in a f
 ```xml
 <filter type='xpath' select='{xpath}'></filter>
 ```
-
-----
-### Python device module
-To start with we're going to write a little module for our device to perform actions on our 8000V router. Some things to keep in mind when working with NETCONF and the various clients.
-
-```shell
-# c8000v.py is a python library that contains simple functions to interact
-# with the device over netconf. We'll implement scrapli_netconf for now
-# we're goingt to make a function that takes a list of YANG XML configs til 
-# deploy to the router, we'll add an optional bool flag to print everyting 
-# We'll also attempt to implement ncclient, both of these should work the same
-vim c8000v.py
-```
-```python
-from scrapli_netconf import NetconfDriver
-from ncclient import manager
-from lxml import etree
-
-# We're also going to import logging for the ncclient cause it's terrible
-#import logging
-#logger = logging.getLogger('ncclient')
-#logger.setLevel(logging.DEBUG)
-#ch = logging.StreamHandler()
-#ch.setLevel(logging.DEBUG)
-#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-#ch.setFormatter(formatter)
-#logger.addHandler(ch)
-
-
-# ncclient and scrapli_netconf use slightly different config blocks
-c8000v_scrapli = {
-    "host": "8000v",
-    "auth_username": "cisco",
-    "auth_password": "cisco",
-    "auth_strict_key": False,
-    "port": 830
-}
-
-c8000v_ncclient = {
-    "host": "8000v",
-    "username": "cisco",
-    "password": "cisco",
-    "hostkey_verify": False,
-    "port": 830,
-    "timeout": 30,
-    "device_params": {"name": "iosxe"}
-}
-
-scrapli_conn = NetconfDriver(**c8000v_scrapli)
-
-def scrapli_configure(cfgs):
-	scrapli_conn.open()
-	print(scrapli_conn.lock(target="candidate").result)
-	for cfg in cfgs:
-		config = stringconfig(cfg)
-		print('sending config: {config}'.format(config=config))
-		print(scrapli_conn.edit_config(config=config, target="candidate").result)
-	print(scrapli_conn.commit().result)
-	print(scrapli_conn.unlock(target="candidate").result)
-	scrapli_conn.close()
-
-def ncclient_configure(cfgs):
-	with manager.connect(**c8000v_ncclient) as m:
-		assert(":candidate" in m.server_capabilities)
-		with m.locked(target="candidate"):
-			m.discard_changes()
-			for cfg in cfgs:
-				config = stringconfig(cfg)
-				edit = m.edit_config(target="candidate", config=config)
-				if "<ok />" not in edit.xml:
-					print(edit.xml)
-				else:
-					print("<ok />")
-			m.commit()
-
-
-# stringconf is here to check if we're sending config directly from a 
-# rendered template (so string on return from the function) or a etree
-# function, which returns xml.etree elements, but we don't want to 
-# unpack them before the function returns, so we can pretty print
-# the contents if we desire in our client code
-def stringconfig(cfg):
-	if type(cfg) == str:
-		return cfg
-	else:
-		return etree.tostring(cfg).decode()
-```
-
-### Python script to get config
-```shell
-# The following python script can be used to get the XML config block
-# for a desired xpath
-# the script starts from /config/native as we'll only be working with said model
-# Examples:
-# # Get all static routes
-# $> get_config.py ip/route 
-# # Get specific interface
-# $> get_config.py interface/GigabitEthernet[name=1]
-vim get_native_config.py
-```
-```python
-from scrapli_netconf import NetconfDriver
-import argparse
-import sys
-
-c8000v = {
-    "host": "8000v",
-    "auth_username": "cisco",
-    "auth_password": "cisco",
-    "auth_strict_key": False,
-    "port": 830
-}
-
-conn = NetconfDriver(**c8000v)
-
-def getconfig(xpath):
-    conn.open()
-    #print(conn.get_config(source="running").result)
-    print(conn.get_config(filter_=xpath, filter_type="xpath").result)
-    conn.close()
-
-def main():
-    """Main method to configure a subinterface."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument('filter',
-	    help="""XPath filter to get IOS XE Native config
-Note: The path is already prefixed with /native/
-Examples:
-	python get_config.py vrf/definition[name=\"mgmt\"]
-	python get_config.py ntp
-	python get_config.py router/bgp
-	""",
-	    type=str
-	)
-    args = parser.parse_args()
-
-    # check for valid VLAN ID
-    if len(args.filter) < 2:
-        parser.print_usage()
-        print("""Invalid filter: {filter}
-        
-	Note: The filter path is already prepended with /native/
-	This means the input path does not start with a /
-	so in order to get ip route info the filter is:
-		ip/route
-	likewise, in order to get a specific interface
-		interface/GigabitEthernet[name=1]
-        
-        """.format(filter=args.filter))
-        sys.exit()
-        
-    getconfig('/native/{filter}'.format(filter=args.filter))
-
-if __name__ == '__main__':
-    sys.exit(main())
-```
-----
-## NETCONF Snippets
-
-### Python Preparation Snippets
-See individual object configurations for implementations
-##### Build config with lxml.etree
-```python
-from lxml import etree
-
-def setInterfaceIPConfig(intf_type, name, desc, addr, mask):
-	# build xml
-	config_e = etree.Element("config",
-		nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
-	)
-	# <native><interfaces><GigabitEthernet>
-	configuration = etree.SubElement(config_e, "native",
-		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
-	)
-	interface_cfg = etree.SubElement(configuration, "interface")
-	giginterface_cfg = etree.SubElement(interface_cfg, intf_type)
-	# Configure name and description
-	etree.SubElement(giginterface_cfg, "name").text = name	
-	etree.SubElement(giginterface_cfg, "description").text  = desc
-	# <ip><address><primary>
-	ip = etree.SubElement(giginterface_cfg,"ip")
-	address = etree.SubElement(ip, "address")
-	primary = etree.SubElement(address, "primary")
-	# configure address and mask
-	etree.SubElement(primary, "address").text = addr
-	etree.SubElement(primary, "mask").text = mask
-	return config_e
-	
-
-def setInterfaceNatDirection(intf_type, name, nat_direction):
-	config_e = etree.Element("config",
-		nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
-	)
-	# <native><interfaces><GigabitEthernet>
-	configuration = etree.SubElement(config_e, "native",
-		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
-	)
-	interface_cfg = etree.SubElement(configuration, "interface")
-	giginterface_cfg = etree.SubElement(interface_cfg, intf_type)
-	# name is required to select the right interface 
-	etree.SubElement(giginterface_cfg, "name").text = name	
-	# <ip><nat>
-	ip = etree.SubElement(giginterface_cfg,"ip")
-	nat = etree.SubElement(ip, "nat",
-		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-nat'}
-	)
-	# configure nat direction
-	etree.SubElement(nat, nat_direction)
-	return config_e
-```
-
-###### Python Class to Generate Configs
-```python
-from lxml import etree
-
-class iosXENative():
-    def __init__(self):
-        self.config = etree.Element("config",
-			nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
-		)
-        self.native = etree.SubElement(self.config, "native",
-            nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
-        )
-        self.interfaces = etree.SubElement(self.native, "interface")
-        self.interface_config = {}
-        self.intf_ip_is_enabled = {}
-
-    def __str__(self):
-        return etree.tostring(self.config, pretty_print=True).decode()
-
-    def __repr__(self):
-        return etree.tostring(self.config).decode()
-
-    def newInterfaceConfig(self, intf_type, name, desc="default desc"):
-        interface_id = "{intf_type}{name}".format(
-	        intf_type=intf_type,
-	        name=name)
-	        
-        self.interface_config[interface_id] = etree.SubElement(
-	        self.interfaces,
-	        intf_type)
-	        
-        etree.SubElement(
-	        self.interface_config[interface_id],
-	        "name").text = name
-	        
-        etree.SubElement(
-	        self.interface_config[interface_id],
-		    "description").text  = desc
-		    
-        return interface_id
-
-    def setInterfaceNat(self, interface_id, nat_direction=None):
-        self._intf_ip_enabled(interface_id)
-        
-        if nat_direction is None:
-            etree.SubElement(
-	            self.intf_ip_is_enabled[interface_id],
-	            "nat",
-	            operation="remove",
-                nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-nat'}
-            )
-        else:
-            nat = etree.SubElement(
-	            self.intf_ip_is_enabled[interface_id],
-	            "nat",
-                nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-nat'}
-            )
-            etree.SubElement(nat, nat_direction)
-
-    def setInterfaceIP(self, interface_id, addr, mask):
-        self._intf_ip_enabled(interface_id)
-        
-        address = etree.SubElement(
-	        self.intf_ip_is_enabled[interface_id],
-	        "address")
-	        
-        primary = etree.SubElement(address, "primary")
-        # configure address and mask
-        etree.SubElement(primary, "address").text = addr
-        etree.SubElement(primary, "mask").text = mask
-
-    def _intf_ip_enabled(self, ip_id):
-        if ip_id in self.intf_ip_is_enabled:
-            return
-        else:
-            self.intf_ip_is_enabled[ip_id] = etree.SubElement(
-	            self.interface_config[ip_id],
-	            "ip")
-            return
-```
-
-### Device Configuration
-----
-There are two main ways of configuring an interface on an IOS-XE utilizing YANG datamodels. The choices are NETCONF and RESTCONF. We will explore each object we need to manage based on each of these criteria:
-
-### Basic System Configuration
-----
-##### Create VLAN (id)
+Let's start by getting something simple like the software version. This is located right at the top of the native configuration. That makes for the following request. We can send the hello and our first message in one go:
+**WE SEND:**
 ```xml
-<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-	    <vlan>
-		    <vlan-list xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-vlan">
-			    <id>{{ id }}</id>
-			</vlan-list>
-		</vlan>
-	</native>
-</config>
+<?xml version="1.0" encoding="utf-8"?>
+    <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+        <capabilities>
+            <capability>urn:ietf:params:netconf:base:1.0</capability>
+        </capabilities>
+</hello>]]>]]>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="101">
+  <get-config>
+   <filter type="xpath" select="/native/version"></filter>
+    <source>
+      <running/>
+    </source>
+  </get-config>
+</rpc>]]>]]>
+```
+**DEVICE SENDS:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="101">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <version>17.5</version>
+    </native>
+  </data>
+</rpc-reply>]]>]]>
+```
+**WE SEND:**
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="102">
+  <get-config>
+   <filter type="xpath" select="/native/ip"></filter>
+    <source>
+      <running/>
+    </source>
+  </get-config>
+</rpc>]]>]]>
+```
+**DEVICE SENDS:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="104">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ip>
+        <forward-protocol>
+          <protocol>nd</protocol>
+        </forward-protocol>
+        <ftp><passive/></ftp>
+        <multicast>
+          <route-limit xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-multicast">2147483647</route-limit>
+        </multicast>
+        <http xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-http">
+          <server>false</server>
+          <secure-server>true</secure-server>
+        </http>
+        <nbar xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-nbar">
+          <classification>
+            <dns>
+              <classify-by-domain/>
+            </dns>
+          </classification>
+        </nbar>
+      </ip>
+    </native>
+  </data>
+</rpc-reply>]]>]]>
 ```
 
-##### Delete VLAN (id)
+OK Great! We can communicate with our device over NETCONF and retreive the configuration blocks we want. Now we're ready to configure our router. 
+
+### Configuring device with NETCONF
+----
+We're now going modify our device, lets start by changing the hostname, then we'll try something a bit more involved. First we'll have to look at the capabilities the router has, as enabling candidate datastore will remove writable-running. Looking at the initial response from our router:
 ```xml
-<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-	    <vlan>
-			<vlan-list xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-vlan" operation="remove">
-		        <id>{{ id }}</id>
-		    </vlan-list>
-	    </vlan>
-	</native>
-</config>
+<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+<capabilities>
+<capability>urn:ietf:params:netconf:base:1.0</capability>
+<capability>urn:ietf:params:netconf:base:1.1</capability>
+<capability>urn:ietf:params:netconf:capability:writable-running:1.0</capability>
+```
+We can see writable-running:1.0 there in the list, this means we can target the running config directly over NETCONF. This line goes away once we enable *netconf-yang feature candidadate-datastore* and instead we get this:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+<capabilities>
+<capability>urn:ietf:params:netconf:base:1.0</capability>
+<capability>urn:ietf:params:netconf:base:1.1</capability>
+<capability>urn:ietf:params:netconf:capability:confirmed-commit:1.1</capability>
+<capability>urn:ietf:params:netconf:capability:confirmed-commit:1.0</capability>
+<capability>urn:ietf:params:netconf:capability:candidate:1.0</capability>
+```
+This means we have to hit the candidate datastore and commit our changes if we want to configure our device. We can handle for both options in our python code later on. For now lets start by changing our running configuration directly.
+
+
+#### Change hostname in running config with RAW NETCONF
+----
+Let's start by writing down all the messages we're going to be sending. Our target is the 'running' configuration. Each RFC message after the hello needs to be wrapped and sequenced
+##### Say hello
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+    <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+        <capabilities>
+            <capability>urn:ietf:params:netconf:base:1.0</capability>
+        </capabilities>
+</hello>]]>]]>
+```
+##### Lock the configuration
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='101'>
+  <lock>
+    <target>
+      <running/>
+    </target>
+  </lock>
+</rpc>]]>]]>
+```
+##### Send the proposed configuration block
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='102'>
+  <edit-config>
+    <target>
+      <running/>
+    </target>
+      <config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+	    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+          <hostname>router</hostname>
+        </native>
+      </config>
+  </edit-config>
+</rpc>]]>]]>
+```
+##### Unlock the configuration
+```xml
+<rpc xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='103'>
+  <unlock>
+    <target>
+      <running/>
+    </target>
+  </unlock>
+</rpc>]]>]]>
+```
+##### Get configuration to confirm
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="104">
+  <get-config>
+   <filter type="xpath" select="/native/hostname"></filter>
+    <source>
+      <running/>
+    </source>
+  </get-config>
+</rpc>]]>]]>
 ```
 
-##### Configure NTP (Set)
+Whoah.. neat! We just changed our running config. Each time we send a message we should get the following reply if things are going well:
 ```xml
-<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-		<ntp>
-			<server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
-				<server-list>
-					<ip-address>{{ ip_address }}</ip-address>
-				</server-list>
-			</server>
-		</ntp>
-	</native>
-</config>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="104">
+  <ok/>
+</rpc-reply>]]>]]>
 ```
 
-##### Configure NTP (Delete)
+And for our final message we should get our new config data back:
 ```xml
-<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-		<ntp>
-			<server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
-				<server-list operation="remove">
-					<ip-address>{{ ip_address }}</ip-address>
-				</server-list>
-			</server>
-		</ntp>
-	</native>
-</config>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="104">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <hostname>router</hostname>
+    </native>
+  </data>
+</rpc-reply>]]>]]>
 ```
+
+Let's finish up by validating the configuration:
+##### Validate configuration
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="106">
+  <validate>
+    <source>
+      <running/>
+    </source>
+  </validate>
+</rpc>]]>]]>
+```
+
 
 
