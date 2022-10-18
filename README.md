@@ -8,7 +8,11 @@
 There's additionally a template
 [IOS XE YANG DOC Template](https://github.com/qzx/netconf/blob/main/doc_template.md)
 
-### Some notes on NETCONF automation
+### Some notes on NETCONF automation  
+
+We'll be using two libraries to communicate with our devices, and two methods of generating XML configs with python. 
+* [Scrapli Netconf](https://scrapli.github.io/scrapli_netconf/)
+* [NCClient](https://ncclient.readthedocs.io/en/latest/)
 
 scrapli_netconf is a little bit more forgiving with the namespace declaration in the \<config\> block. That is to say ncclient doesn't really work if the namespace isn't declared:
 
