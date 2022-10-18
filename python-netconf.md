@@ -1,5 +1,4 @@
 # Python NETCONF
-
 ----
 Now that we've understood somewhat how the NETCONF communications are handled, let us introduce python to help us get more robust. We'll start by creating a small library that can configure our device. We'll implement both available libraries for kicks.
 
@@ -34,7 +33,7 @@ from lxml import etree
 CANDIDATE = "urn:ietf:params:netconf:capability:candidate:1.0"
 RUNNING = "urn:ietf:params:netconf:capability:writable-running:1.0"
 
-# neither client implements cisco's save-config RPC
+# scrapli_netconf doesn't implement the save-config RPC
 # We'll need to send the following string as a raw RPC call
 save_rpc = '<save-config xmlns="http://cisco.com/yang/cisco-ia"/>'
 def scrapli_save():
@@ -42,9 +41,10 @@ def scrapli_save():
 	print(scrapli_conn.rpc(filter_=save_rpc).result)
 	scrapli_conn.close()
 
+# ncclient adds the save_config function when we declare our deice as iosxe
 def ncc_save():
 	with manager.connect(**c8000v_ncclient) as m:
-		m.dispatch(xml_.to_ele(save_rpc))
+		m.save_config()
 
 # ncclient and scrapli_netconf use slightly different config blocks
 c8000v_scrapli = {
@@ -446,6 +446,12 @@ $ python get_native_config.py ntp
       <ntp>
         <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
           <server-list>
+            <ip-address>1.1.1.1</ip-address>
+          </server-list>
+          <server-list>
+            <ip-address>1.1.1.2</ip-address>
+          </server-list>
+          <server-list>
             <ip-address>162.159.200.1</ip-address>
           </server-list>
           <server-list>
@@ -456,6 +462,89 @@ $ python get_native_config.py ntp
     </native>
   </data>
 </rpc-reply>
+```
+
+Oooh my... /that/ wasn't what we wanted. Turns out that by default config sent to the device will just get added, our prior config is still there as well. But we don't want that, we want our NETCONF configuration to be replace the NTP config with our own.  
+This is can be done with the operation keyword. 
+
+##### Updated template to REPLACE the config on the device
+```jinja2
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ntp>
+        <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp" operation="replace">
+          {%- for addr in servers %}
+          <server-list>
+            <ip-address>{{ addr }}</ip-address>
+          </server-list>
+          {%- endfor %}
+        </server>
+      </ntp>
+    </native>
+</config>
+```
+
+##### Updated lxml.etree to REPLACE the config on device
+```python
+from lxml import etree
+def iosXEntp(servers=[]):
+	config = etree.Element("config",
+		nsmap = {None: 'urn:ietf:params:xml:ns:netconf:base:1.0'}
+	)
+	# <native><interfaces><GigabitEthernet>
+	native = etree.SubElement(config, "native",
+		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
+	)
+
+	# Create the ntp and server children
+	ntp = etree.SubElement(native, "ntp")
+	server = etree.SubElement(ntp, "server",
+		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-ntp'},
+		operation = "replace"
+	)
+
+	# Loop in the same place and assign our variable to the ip-address field
+	for addr in servers:
+		entry = etree.SubElement(server, "server-list")
+		etree.SubElement(entry, "ip-address").text = addr
+	
+	return config
+	
+config = iosXEntp(
+	servers=["162.159.200.1", "185.181.223.169"]
+)
+
+#print(etree.tostring(config, pretty_print=True).decode())
+import c8000v
+c8000v.ncclient_configure([config])
+```
+
+Now when we run our script again, and then get the config, we should have what we want:
+
+##### Sending config with operation="replace" 
+```shell
+$ python ios-xe-native-ntp-lxml.py
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="urn:uuid:ff8a364f-28c3-4de7-b90b-f8f6dd5de198" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"><ok/></rpc-reply>
+
+$ python get_native_config.py ntp
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="101">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ntp>
+        <server xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+          <server-list>
+            <ip-address>162.159.200.1</ip-address>
+          </server-list>
+          <server-list>
+            <ip-address>185.181.223.169</ip-address>
+          </server-list>
+        </server>
+      </ntp>
+    </native>
+  </data>
+</rpc-reply>
+
 ```
 
 That was a lot of fun... we can now create these structures for various elements:

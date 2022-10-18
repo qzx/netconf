@@ -11,7 +11,8 @@ def iosXEntp(servers=[]):
 	# Create the ntp and server children
 	ntp = etree.SubElement(native, "ntp")
 	server = etree.SubElement(ntp, "server",
-		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-ntp'}
+		nsmap = {None: 'http://cisco.com/ns/yang/Cisco-IOS-XE-ntp'},
+                operation="replace"
 	)
 
 	# Loop in the same place and assign our variable to the ip-address field

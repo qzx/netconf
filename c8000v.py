@@ -27,7 +27,7 @@ def scrapli_save():
 
 def ncc_save():
 	with manager.connect(**c8000v_ncclient) as m:
-		m.dispatch(xml_.to_ele(save_rpc))
+		m.save_config()
 
 # ncclient and scrapli_netconf use slightly different config blocks
 c8000v_scrapli = {
@@ -82,7 +82,7 @@ def ncclient_configure(cfgs):
 				m.discard_changes()
 				for cfg in cfgs:
 					config = stringconfig(cfg)
-					edit = m.edit_config(target="candidate", config=config)
+					edit = m.edit_config(target="candidate", config=config, default_operation="none")
 					if "<ok />" not in edit.xml:
 						print(edit.xml)
 					else:
@@ -93,7 +93,7 @@ def ncclient_configure(cfgs):
 			with m.locked(target="running"):
 				for cfg in cfgs:
 					config = stringconfig(cfg)
-					edit = m.edit_config(target="running", config=config)
+					edit = m.edit_config(target="running", config=config, default_operation="none")
 					if "<ok />" not in edit.xml:
 						print(edit.xml)
 					else:
